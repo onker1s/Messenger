@@ -70,5 +70,9 @@ public class ChatFrame extends JFrame {
     public void appendMessage(String sender, String message) {
         textAreaChat.append(sender + " -> " + message + "\n");
     }
+    public void updateStatus(String status)
+    {
+        this.setTitle("Диалог с " + recipient +"("+status+")");
+    }
 }
 

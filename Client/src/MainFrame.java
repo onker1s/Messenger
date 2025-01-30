@@ -119,7 +119,11 @@ public class MainFrame extends JFrame {
                                 openDialogs.get(sender).appendMessage(sender, text);
                             });
                         }
-                    } else {
+                    }
+                    else if(message != null && message.startsWith("USER_STATUS_UPDATE")){
+                        processStatusUpdate(message);
+                    }
+                    else {
                         // Отображение других сообщений в основной области
                         textAreaIncoming.append(message + "\n");
                     }
@@ -128,6 +132,25 @@ public class MainFrame extends JFrame {
                             "Ошибка связи с сервером: " + e.getMessage(),
                             "Ошибка", JOptionPane.ERROR_MESSAGE);
                     break;
+                }
+            }
+        }
+        private void processStatusUpdate(String message) {
+            // Убираем префикс
+            String statusData = message.replace("USER_STATUS_UPDATE ", "").trim();
+            // Разбираем статусы
+            String[] statusEntries = statusData.split(" ");
+            for (String entry : statusEntries) {
+                String[] parts = entry.split(":");
+
+                if (parts.length == 2) {
+                    String username = parts[0];
+                    String status = parts[1];
+
+                    // Если есть открытый чат с этим пользователем — обновляем статус
+                    if (openDialogs.containsKey(username)) {
+                        openDialogs.get(username).updateStatus(status);
+                    }
                 }
             }
         }

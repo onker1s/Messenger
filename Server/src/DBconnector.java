@@ -9,7 +9,6 @@ public class DBconnector {
     // Метод для получения подключения к базе данных
     public static Connection getConnection() throws SQLException, IOException {
         Properties props = new Properties();
-        System.out.println(Paths.get("database.properties").toAbsolutePath());
 
         // Загружаем настройки подключения из файла
         try (InputStream in = Files.newInputStream(Paths.get("src\\database.properties"))) {
@@ -77,35 +76,7 @@ public class DBconnector {
             return false;
         }
     }
-    public boolean sendMessage(String senderName, String recipientName, String message)
-    {
-        String queryD = "INSERT INTO dialogs (user_1_name, user_2_name) VALUES (?, ?)";
-        String queryM = "INSERT INTO messages (dialog_id, message_sender, message_text) VALUES ((SELECT dialog_id FROM messenger.dialogs WHERE user_1_name = ? OR user_2_name = ? AND user_2_name = ? OR user_1_name = ? LIMIT 1), ?, ?)";
-        try (Connection connection = getConnection();
-             PreparedStatement statement = connection.prepareStatement(queryM)) {
 
-            if(isDialogExists(senderName,recipientName))
-            {
-                // Устанавливаем параметры запроса
-                statement.setString(1, senderName);
-                statement.setString(2, recipientName);
-                statement.setString(3, senderName);
-                statement.setString(4, recipientName);
-                statement.setString(5, senderName);
-                statement.setString(6, message);
-
-                // Выполняем запрос
-                statement.executeUpdate();
-            }
-            else{
-
-            }
-        } catch (SQLException | IOException e) {
-            e.printStackTrace();
-        }
-        return false;
-
-    }
     // Пример метода для проверки пользователя (можно расширить функционал)
     public boolean isUserExists(String username) {
         String query = "SELECT COUNT(*) FROM users WHERE user_name = ?";
@@ -235,6 +206,32 @@ public class DBconnector {
         }
 
         return messages.toString();
+    }
+
+    public Set<String> getUserDialogPartners(String username) {
+        Set<String> dialogUsers = new HashSet<>();
+        String sql = "SELECT DISTINCT CASE " +
+                "WHEN message_sender = ? THEN message_recipient " +
+                "WHEN message_recipient = ? THEN message_sender " +
+                "END AS dialog_partner " +
+                "FROM messages WHERE message_sender = ? OR message_recipient = ?";
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, username);
+            stmt.setString(2, username);
+            stmt.setString(3, username);
+            stmt.setString(4, username);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    dialogUsers.add(rs.getString("dialog_partner"));
+                }
+            }
+        } catch (SQLException | IOException e) {
+            e.printStackTrace();
+        }
+        return dialogUsers;
     }
 
 }

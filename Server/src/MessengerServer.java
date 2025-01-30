@@ -12,6 +12,7 @@ public class MessengerServer {
 
     // Храним активные подключения
     private static final Map<String, ClientHandler> activeClients = new ConcurrentHashMap<>();
+    private static StatusUpdater statusUpdater = new StatusUpdater(activeClients);
     public static void main(String[] args) {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             System.out.println("Server is running on port " + PORT);
@@ -21,6 +22,7 @@ public class MessengerServer {
                 System.out.println("New client connected: " + clientSocket.getInetAddress());
                 ClientHandler clientHandler = new ClientHandler(clientSocket);
                 threadPool.execute(clientHandler);
+                threadPool.execute(statusUpdater);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -30,11 +32,13 @@ public class MessengerServer {
     // Метод для добавления клиента в список активных
     public static void addClient(String username, ClientHandler handler) {
         activeClients.put(username, handler);
+        statusUpdater.updateStatus(activeClients);
     }
 
     // Метод для удаления клиента при отключении
     public static void removeClient(String username) {
         activeClients.remove(username);
+        statusUpdater.updateStatus(activeClients);
     }
 
     // Метод для получения ClientHandler по имени пользователя
