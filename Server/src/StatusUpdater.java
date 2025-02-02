@@ -16,7 +16,7 @@ class StatusUpdater implements Runnable {
         while (true) {
             try {
                 updateUserStatusesForClients();
-                Thread.sleep(10000); // Отправляем статусы каждые 5 секунд
+                Thread.sleep(5000); // Отправляем статусы каждые 5 секунд
             } catch (InterruptedException | IOException e) {
                 e.printStackTrace();
             }

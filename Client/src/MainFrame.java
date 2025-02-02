@@ -21,6 +21,7 @@ public class MainFrame extends JFrame {
     private final JTextArea textAreaIncoming;
     private final ServerConnection serverConnection;
 
+
     // Хранение открытых окон диалогов
     private final HashMap<String, ChatFrame> openDialogs = new HashMap<>();
 
@@ -40,7 +41,13 @@ public class MainFrame extends JFrame {
 
         // Кнопка "Начать диалог"
         final JButton startChatButton = new JButton("Начать диалог");
-        startChatButton.addActionListener(e -> startNewDialog());
+        startChatButton.addActionListener(e -> {
+            try {
+                startNewDialog();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
 
         // Компоновка элементов
         final GroupLayout layout = new GroupLayout(getContentPane());
@@ -64,23 +71,28 @@ public class MainFrame extends JFrame {
     }
 
     // Метод для открытия нового окна чата
-    private void startNewDialog() {
+    private void startNewDialog() throws IOException {
         String recipient = JOptionPane.showInputDialog(this, "Введите имя получателя:");
         if (recipient != null && !recipient.trim().isEmpty() && !Objects.equals(sender, recipient)) {
-            openChatWindow(recipient);
+            checkUserExist(recipient);
         }
         else if(Objects.equals(recipient, sender)){
             JOptionPane.showMessageDialog(MainFrame.this,"Нельзя начать диалог с самим собой", "Ошибка", JOptionPane.ERROR_MESSAGE);          }
     }
 
     // Метод для открытия окна чата с конкретным пользователем
-    private void openChatWindow(String recipient) {
-        if (!openDialogs.containsKey(recipient)) {
+    private void openChatWindow(String recipient, boolean isUserExist) throws IOException {
+        System.out.println(isUserExist);
+        if (!openDialogs.containsKey(recipient) && isUserExist) {
+            isUserExist = false;
             ChatFrame chatFrame = new ChatFrame(serverConnection, recipient, sender);
             openDialogs.put(recipient, chatFrame);
             chatFrame.setVisible(true);
-        } else if(!Objects.equals(sender, recipient)){
+        } else if(openDialogs.containsKey(recipient)){
             JOptionPane.showMessageDialog(this, "Диалог с этим пользователем уже открыт.");
+        }
+        else if(!isUserExist){
+            JOptionPane.showMessageDialog(this, "Пользователя с именем " + recipient + " не существует");
         }
         else{
             JOptionPane.showMessageDialog(MainFrame.this,
@@ -89,6 +101,10 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void checkUserExist(String recipient) throws IOException {
+        String formattedMessage = "CHECK_USER_EXIST " + recipient;
+        serverConnection.sendMessage(formattedMessage);
+    }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
@@ -114,7 +130,11 @@ public class MainFrame extends JFrame {
                             // Если окно диалога с отправителем ещё не открыто, открываем его
                             SwingUtilities.invokeLater(() -> {
                                 if (!openDialogs.containsKey(sender)) {
-                                    openChatWindow(sender);
+                                    try {
+                                        openChatWindow(sender,true);
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
                                 }
                                 openDialogs.get(sender).appendMessage(sender, text);
                             });
@@ -122,6 +142,12 @@ public class MainFrame extends JFrame {
                     }
                     else if(message != null && message.startsWith("USER_STATUS_UPDATE")){
                         processStatusUpdate(message);
+                    }
+                    else if(message!= null && message.startsWith("USER_EXIST"))
+                    {
+                            String[] parts = message.split(" ", 3);
+                            openChatWindow(parts[2],Objects.equals(parts[1], "TRUE"));
+
                     }
                     else {
                         // Отображение других сообщений в основной области
@@ -154,6 +180,7 @@ public class MainFrame extends JFrame {
                 }
             }
         }
+
     }
 }
 

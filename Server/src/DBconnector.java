@@ -50,20 +50,29 @@ public class DBconnector {
     }
 
     // Метод для регистрации пользователя в базе данных
-    public boolean loginUser(String username, String password) {
-        String query = "SELECT user_password FROM users WHERE user_name = ?";
+    public boolean loginUser(String username, String password, String currentIP) {
+        String query1 = "SELECT user_password FROM users WHERE user_name = ?";
+        String query2= "UPDATE messenger.users SET user_IP = ? WHERE (user_name = ?)";
         if (isUserExists(username)) {
             try (Connection connection = getConnection();
-                 PreparedStatement statement = connection.prepareStatement(query)) {
+                 PreparedStatement statement1 = connection.prepareStatement(query1);
+                 PreparedStatement statement2 = connection.prepareStatement(query2)) {
 
                 // Устанавливаем параметры запроса
-                statement.setString(1, username);
+                statement1.setString(1, username);
                 // Выполняем запрос
-                ResultSet correctpassword = statement.executeQuery();
+                ResultSet correctpassword = statement1.executeQuery();
                 // Проверяем, есть ли результат
                 if (correctpassword.next()) { // Перемещаем курсор к первой строке результата
                     String storedPassword = correctpassword.getString("user_password");
-                    return Objects.equals(storedPassword, password); // Сравниваем с введенным паролем
+                    boolean passwordEquals =  Objects.equals(storedPassword, password);
+                    if(Objects.equals(storedPassword, password)) {
+                        statement2.setString(1, currentIP);
+                        statement2.setString(2,username);
+                        statement2.executeUpdate();
+                        return true;
+                    }
+                    else{return false;}
                 } else {
                     return false; // Если нет результата, возвращаем false
                 }

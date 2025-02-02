@@ -3,6 +3,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Properties;
@@ -43,8 +45,16 @@ public class LoginFrame extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 if(!passwordTextField.getText().isEmpty() && !nameTextField.getText().isEmpty())
                 {
+                    InetAddress localHost = null;
+                    try {
+                        localHost = InetAddress.getLocalHost();
+                    } catch (UnknownHostException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                    // Получаем IP-адрес в виде строки
+                    String ipAddress = localHost.getHostAddress();
                     //отправка имени и пароля в базу, подтверждение уникальности имени, регистрация пользователя
-                    String request = "LOGIN " + nameTextField.getText() + " " + passwordTextField.getText();
+                    String request = "LOGIN " + nameTextField.getText() + " " + passwordTextField.getText() + " " + ipAddress;
                     try {
                         ServerConnection serverConnection = new ServerConnection(IP,Integer.parseInt(port));
                         serverConnection.sendMessage(request);

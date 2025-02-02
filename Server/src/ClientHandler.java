@@ -47,6 +47,9 @@ class ClientHandler implements Runnable {
             case "MESSAGE":
                 handleMessage(parts);
                 break;
+            case "CHECK_USER_EXIST":
+                handleCheckUserExist(parts);
+                break;
             default:
                 sendResponse("UNKNOWN_COMMAND");
         }
@@ -69,11 +72,11 @@ class ClientHandler implements Runnable {
     }
 
     private void handleLogin(String[] parts) throws IOException {
-        if (parts.length == 3) {
+        if (parts.length == 4) {
             this.username = parts[1];
             String password = parts[2];
-
-            if (db.loginUser(username, password)) {
+            String currentIP = parts[3];
+            if (db.loginUser(username, password,currentIP)) {
                 db.setUserStatus(username, 1); // Пользователь онлайн
                 MessengerServer.addClient(username, this);
                 sendResponse("LOGIN_SUCCESS");
@@ -108,6 +111,15 @@ class ClientHandler implements Runnable {
         String message = String.join(" ", wordsInMessage);
 
         MessageHandler.processMessage(senderName, recipientName, message, db, this);
+    }
+
+    private void handleCheckUserExist(String[] parts) throws IOException {
+        if(db.isUserExists(parts[1])){
+            sendResponse("USER_EXIST TRUE " + parts[1]);
+        }
+        else{
+            sendResponse("USER_EXIST FALSE " + parts[1]);
+        }
     }
 
     public void sendMessage(String message) throws IOException {
