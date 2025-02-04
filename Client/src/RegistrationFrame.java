@@ -1,28 +1,15 @@
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.sql.SQLException;
 import java.util.Objects;
 import java.util.Properties;
-import javax.swing.BorderFactory;
-import javax.swing.GroupLayout;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
-@SuppressWarnings("serial")
+import javax.swing.*;
+
 public class RegistrationFrame extends JFrame {
     private static final String FRAME_TITLE = "Клиент мгновенных сообщений";
     private static final int FRAME_MINIMUM_WIDTH = 500;
@@ -56,10 +43,8 @@ public class RegistrationFrame extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!nameTextField.getText().isEmpty() && !password1TextField.getText().isEmpty() && Objects.equals(password1TextField.getText(), password2TextField.getText())) {
-                    //отправка имени и пароля в базу, подтверждение уникальности имени, регистрация пользователя
-                    // Отправляем запрос на регистрацию
-                    // Получаем объект InetAddress, представляющий локальный хост
-                    InetAddress localHost = null;
+
+                    InetAddress localHost;
                     try {
                         localHost = InetAddress.getLocalHost();
                     } catch (UnknownHostException ex) {
@@ -68,20 +53,17 @@ public class RegistrationFrame extends JFrame {
 
                     // Получаем IP-адрес в виде строки
                     String ipAddress = localHost.getHostAddress();
-
-
-                    System.out.println("Текущий IP-адрес: " + ipAddress);
                     String request = "REGISTER " + nameTextField.getText() + " " + password1TextField.getText() + " " + ipAddress;
                     try {
                         ServerConnection serverConnection = new ServerConnection(IP,Integer.parseInt(port));
                         serverConnection.sendMessage(request);
                         String response = serverConnection.receiveMessage();
                         if (response.equals("REGISTER_SUCCESS")) {
-                            System.out.println("Registration successful!");
+                            JOptionPane.showMessageDialog(RegistrationFrame.this, "Регистрация прошла успешно. Войдите в аккаунт.");
                             dispose();
                             final LoginFrame logframe = new LoginFrame(serverConnection);
                         } else {
-                            System.out.println("Registration failed: " + response);
+                            JOptionPane.showMessageDialog(RegistrationFrame.this, "Имя пользователя занято.");
                         }
                     } catch (IOException ex) {
                         throw new RuntimeException(ex);
@@ -89,12 +71,12 @@ public class RegistrationFrame extends JFrame {
 
 
                 } else if (nameTextField.getText().isEmpty()) {
-                    // Окно с сообщением о том, что надо ввести имя
+                    JOptionPane.showMessageDialog(RegistrationFrame.this, "Введите имя.");
                 } else if (password1TextField.getText().isEmpty() && nameTextField.getText().isEmpty()) {
-                    // Окно с сообщением о том, что надо ввести имя и пароль
+                    JOptionPane.showMessageDialog(RegistrationFrame.this, "Введите имя и пароль.");
                 }
                 else {
-                    //Окно с сообщением что пароли не совпадают
+                    JOptionPane.showMessageDialog(RegistrationFrame.this, "Пароли не совпадают.");
                 }
             }
         });

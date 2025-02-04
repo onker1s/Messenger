@@ -52,34 +52,32 @@ public class DBconnector {
     // Метод для регистрации пользователя в базе данных
     public boolean loginUser(String username, String password, String currentIP) {
         String query1 = "SELECT user_password FROM users WHERE user_name = ?";
-        String query2= "UPDATE messenger.users SET user_IP = ? WHERE (user_name = ?)";
+        String query2 = "UPDATE messenger.users SET user_IP = ? WHERE (user_name = ?)";
         if (isUserExists(username)) {
             try (Connection connection = getConnection();
-                 PreparedStatement statement1 = connection.prepareStatement(query1);
-                 PreparedStatement statement2 = connection.prepareStatement(query2)) {
+                 PreparedStatement statement1 = connection.prepareStatement(query1)) {
 
-                // Устанавливаем параметры запроса
                 statement1.setString(1, username);
-                // Выполняем запрос
                 ResultSet correctpassword = statement1.executeQuery();
-                // Проверяем, есть ли результат
-                if (correctpassword.next()) { // Перемещаем курсор к первой строке результата
+
+                if (correctpassword.next()) {
                     String storedPassword = correctpassword.getString("user_password");
-                    boolean passwordEquals =  Objects.equals(storedPassword, password);
-                    if(Objects.equals(storedPassword, password)) {
-                        statement2.setString(1, currentIP);
-                        statement2.setString(2,username);
-                        statement2.executeUpdate();
+                    if (Objects.equals(storedPassword, password)) {
+                        correctpassword.close(); // Закрываем результат перед следующим запросом
+
+                        try (PreparedStatement statement2 = connection.prepareStatement(query2)) {
+                            statement2.setString(1, currentIP);
+                            statement2.setString(2, username);
+                            statement2.executeUpdate();
+                        }
                         return true;
                     }
-                    else{return false;}
-                } else {
-                    return false; // Если нет результата, возвращаем false
                 }
             } catch (SQLException | IOException e) {
                 e.printStackTrace();
-                return false;
             }
+            return false;
+
         }
         else {
             return false;
@@ -106,28 +104,7 @@ public class DBconnector {
         }
         return false;
     }
-    public boolean isDialogExists(String user_1_name,String user_2_name) {
-        String query = "SELECT COUNT(*) FROM dialogs WHERE user_1_name = ? OR user_2_name = ? AND user_2_name = ? OR user_1_name = ?";
 
-        try (Connection connection = getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            // Устанавливаем параметры запроса
-            statement.setString(1, user_1_name);
-            statement.setString(2, user_2_name);
-            statement.setString(3, user_1_name);
-            statement.setString(4, user_2_name);
-
-            // Выполняем запрос
-            ResultSet resultSet = statement.executeQuery();
-            if (resultSet.next()) {
-                return resultSet.getInt(1) > 0; // Если диалог существует
-            }
-        } catch (SQLException | IOException e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
 
     public boolean isUserOnline(String username) {
         String query = "SELECT user_status FROM users WHERE user_name = ?";
@@ -149,7 +126,7 @@ public class DBconnector {
 
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(query)) {
-            System.out.println(sender+recipient);
+
             statement.setString(1, sender);
             statement.setString(2, recipient);
             statement.setString(3, message);
@@ -242,5 +219,30 @@ public class DBconnector {
         }
         return dialogUsers;
     }
+   public String getMessagesFromUser(String user_1, String user_2){
+       StringBuilder messages = new StringBuilder();
+       String query = "SELECT message_sender, message_text FROM messages WHERE (message_recipient = ? AND message_sender = ?) OR (message_recipient = ? AND message_sender = ?) AND delivered_status = 1 ORDER BY message_id ASC";
 
+       try (Connection connection = getConnection();
+            PreparedStatement statement = connection.prepareStatement(query)) {
+
+           statement.setString(1, user_1);
+           statement.setString(2, user_2);
+           statement.setString(3, user_2);
+           statement.setString(4, user_1);
+           ResultSet resultSet = statement.executeQuery();
+
+           while (resultSet.next()) {
+               messages.append(resultSet.getString("message_sender"))
+                       .append("YhUI10125789@fFg6")
+                       .append(resultSet.getString("message_text"))
+                       .append("YhUI10125789@fFg6");
+           }
+
+
+       } catch (SQLException | IOException e) {
+           e.printStackTrace();
+       }
+       return messages.toString();
+   }
 }

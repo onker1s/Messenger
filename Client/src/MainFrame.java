@@ -1,43 +1,49 @@
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Objects;
 import javax.swing.*;
 
-@SuppressWarnings("serial")
 public class MainFrame extends JFrame {
     private static final String FRAME_TITLE = "Клиент мгновенных сообщений";
     private static final int FRAME_MINIMUM_WIDTH = 500;
     private static final int FRAME_MINIMUM_HEIGHT = 500;
     private static String sender;
-    private final JTextArea textAreaIncoming;
     private final ServerConnection serverConnection;
-
-
+    private final DefaultListModel<String> dialogsListModel;
+    private final JList<String> dialogsList;
     // Хранение открытых окон диалогов
     private final HashMap<String, ChatFrame> openDialogs = new HashMap<>();
 
     public MainFrame(ServerConnection connection, String sender) {
         super(FRAME_TITLE);
         serverConnection = connection;
-        this.sender = sender;
+        MainFrame.sender = sender;
         setMinimumSize(new Dimension(FRAME_MINIMUM_WIDTH, FRAME_MINIMUM_HEIGHT));
         final Toolkit kit = Toolkit.getDefaultToolkit();
         setLocation((kit.getScreenSize().width - getWidth()) / 2,
                 (kit.getScreenSize().height - getHeight()) / 2);
+        //Отображение списка существующих диалогов
+        dialogsListModel = new DefaultListModel<>();
+        dialogsList = new JList<>(dialogsListModel);
+        JScrollPane scrollPaneDialogs = new JScrollPane(dialogsList);
+        dialogsList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                String selectedUser = dialogsList.getSelectedValue();
+                if (selectedUser != null) {
+                    String[] parts = selectedUser.split(" ");
+                    if (parts[0] != null) {
+                        try {
+                            openChatWindow(parts[0], true);
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                }
+                dialogsList.clearSelection();
+            }
+        });
 
-        // Текстовая область для отображения полученных сообщений
-        textAreaIncoming = new JTextArea(15, 0);
-        textAreaIncoming.setEditable(false);
-        final JScrollPane scrollPaneIncoming = new JScrollPane(textAreaIncoming);
 
         // Кнопка "Начать диалог"
         final JButton startChatButton = new JButton("Начать диалог");
@@ -55,38 +61,52 @@ public class MainFrame extends JFrame {
         layout.setHorizontalGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
-                        .addComponent(scrollPaneIncoming)
+                        .addComponent(scrollPaneDialogs)
                         .addComponent(startChatButton))
                 .addContainerGap());
         layout.setVerticalGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(scrollPaneIncoming)
+                .addComponent(scrollPaneDialogs)
                 .addGap(10)
                 .addComponent(startChatButton)
                 .addContainerGap());
+        requestDialogsList();
         setVisible(true);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         // Запуск потока для прослушивания сервера
         new Thread(new IncomingMessageListener()).start();
     }
 
+    private void updateDialogList(String newDialogUser) {
+        SwingUtilities.invokeLater(() -> {
+            String[] parts = newDialogUser.split(" ");
+            if (!dialogsListModel.contains(parts[0]+" (online)") && !dialogsListModel.contains(parts[0]+" (offline)") && !dialogsListModel.contains(parts[0])) {
+                dialogsListModel.addElement(parts[0]);
+            }
+        });
+    }
     // Метод для открытия нового окна чата
     private void startNewDialog() throws IOException {
         String recipient = JOptionPane.showInputDialog(this, "Введите имя получателя:");
         if (recipient != null && !recipient.trim().isEmpty() && !Objects.equals(sender, recipient)) {
             checkUserExist(recipient);
+
         }
         else if(Objects.equals(recipient, sender)){
             JOptionPane.showMessageDialog(MainFrame.this,"Нельзя начать диалог с самим собой", "Ошибка", JOptionPane.ERROR_MESSAGE);          }
     }
 
+
+
     // Метод для открытия окна чата с конкретным пользователем
     private void openChatWindow(String recipient, boolean isUserExist) throws IOException {
-        System.out.println(isUserExist);
+
         if (!openDialogs.containsKey(recipient) && isUserExist) {
             isUserExist = false;
-            ChatFrame chatFrame = new ChatFrame(serverConnection, recipient, sender);
+            updateDialogList(recipient);
+            ChatFrame chatFrame = new ChatFrame(serverConnection, recipient, sender,openDialogs);
             openDialogs.put(recipient, chatFrame);
+            getMessagesFromServer(recipient);
             chatFrame.setVisible(true);
         } else if(openDialogs.containsKey(recipient)){
             JOptionPane.showMessageDialog(this, "Диалог с этим пользователем уже открыт.");
@@ -100,10 +120,16 @@ public class MainFrame extends JFrame {
                     "Ошибка", JOptionPane.ERROR_MESSAGE);
         }
     }
-
+    private void getMessagesFromServer(String recipient){
+        String formattedMessage = "GET_MESSAGES " + recipient + " " + sender;
+        serverConnection.sendMessage(formattedMessage);
+    }
     private void checkUserExist(String recipient) throws IOException {
         String formattedMessage = "CHECK_USER_EXIST " + recipient;
         serverConnection.sendMessage(formattedMessage);
+    }
+    private void requestDialogsList() {
+        serverConnection.sendMessage("GET_DIALOGS " + sender);
     }
 
     public static void main(String[] args) {
@@ -131,27 +157,52 @@ public class MainFrame extends JFrame {
                             SwingUtilities.invokeLater(() -> {
                                 if (!openDialogs.containsKey(sender)) {
                                     try {
+                                        updateDialogList(sender);
                                         openChatWindow(sender,true);
+                                        synchronized (this) {
+                                            try {
+                                                wait(500); // Ждем немного, пока сервер ответит
+                                            } catch (InterruptedException e) {
+                                                Thread.currentThread().interrupt();
+                                            }
+                                        }
                                     } catch (IOException e) {
                                         throw new RuntimeException(e);
                                     }
                                 }
-                                openDialogs.get(sender).appendMessage(sender, text);
+
                             });
                         }
                     }
                     else if(message != null && message.startsWith("USER_STATUS_UPDATE")){
-                        processStatusUpdate(message);
+                             processStatusUpdate(message);
                     }
                     else if(message!= null && message.startsWith("USER_EXIST"))
                     {
                             String[] parts = message.split(" ", 3);
                             openChatWindow(parts[2],Objects.equals(parts[1], "TRUE"));
-
                     }
-                    else {
-                        // Отображение других сообщений в основной области
-                        textAreaIncoming.append(message + "\n");
+                    else if (message!= null && message.startsWith("DIALOGS_LIST")) {
+                        String[] parts = message.split(" ");
+                        if(parts.length >= 2) {
+                            SwingUtilities.invokeLater(() -> {
+                                dialogsListModel.clear();
+                                for (int i = 1; i < parts.length; i++) {
+                                    dialogsListModel.addElement(parts[i]);
+                                }
+                            });
+                        }
+                    }
+                    else if(message!= null && message.startsWith("GETTING_MESSAGES"))
+                    {
+                        String recipient = message.split(" ")[1];
+                        String cleanedMessage = message.replace("GETTING_MESSAGES " + recipient + " ", "").trim();
+                        String[] messages = cleanedMessage.split("YhUI10125789@fFg6");
+                        for(int i = 0; i < messages.length-1; i+=2){
+                            if(Objects.equals(messages[i], sender)) {openDialogs.get(recipient).appendMessage("Я", messages[i+1]);}
+                            else {openDialogs.get(recipient).appendMessage(messages[i], messages[i+1]);}
+                        }
+
                     }
                 } catch (IOException e) {
                     JOptionPane.showMessageDialog(MainFrame.this,
@@ -177,7 +228,29 @@ public class MainFrame extends JFrame {
                     if (openDialogs.containsKey(username)) {
                         openDialogs.get(username).updateStatus(status);
                     }
+                    updateDialogListWithStatus(username, status);
                 }
+            }
+        }
+        private void updateDialogListWithStatus(String username, String status) {
+            boolean found = false;
+
+            // Проходим по списку, проверяя, есть ли уже этот пользователь
+            for (int i = 0; i < dialogsListModel.getSize(); i++) {
+                String currentEntry = dialogsListModel.getElementAt(i);
+
+                // Проверяем, не добавлен ли уже пользователь (без учета статуса)
+                if (currentEntry.startsWith(username)) {
+
+                    dialogsListModel.setElementAt(username + " (" + status + ")", i); // Обновляем статус
+                    found = true;
+                    break;
+                }
+            }
+
+            // Если пользователя не было в списке, добавляем его
+            if (!found) {
+                dialogsListModel.addElement(username + " (" + status + ")");
             }
         }
 

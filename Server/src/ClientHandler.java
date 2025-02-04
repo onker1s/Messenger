@@ -1,11 +1,11 @@
 import java.io.*;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.Set;
 
 class ClientHandler implements Runnable {
-    private Socket clientSocket;
-    private DBconnector db;
-    private BufferedReader in;
+    private final Socket clientSocket;
+    private final DBconnector db;
     private BufferedWriter out;
     private String username;
 
@@ -17,7 +17,7 @@ class ClientHandler implements Runnable {
     @Override
     public void run() {
         try {
-            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 
             String request;
@@ -50,6 +50,12 @@ class ClientHandler implements Runnable {
             case "CHECK_USER_EXIST":
                 handleCheckUserExist(parts);
                 break;
+            case "GET_DIALOGS":
+                handleGetDialogs(parts);
+                break;
+            case "GET_MESSAGES":
+                handleGetMessages(parts);
+                break;
             default:
                 sendResponse("UNKNOWN_COMMAND");
         }
@@ -65,12 +71,19 @@ class ClientHandler implements Runnable {
                 sendResponse("REGISTER_SUCCESS");
             } else {
                 sendResponse("REGISTER_FAIL");
+                disconnectUser();
             }
         } else {
             sendResponse("INVALID_REGISTER_FORMAT");
         }
     }
-
+    private void handleGetMessages(String[] parts) throws IOException {
+        String messages = db.getMessagesFromUser(parts[1],parts[2]);
+        System.out.println(messages);
+        if (!messages.isEmpty()) {
+            sendResponse("GETTING_MESSAGES " + parts[1]+ " " + messages);
+        }
+    }
     private void handleLogin(String[] parts) throws IOException {
         if (parts.length == 4) {
             this.username = parts[1];
@@ -88,6 +101,7 @@ class ClientHandler implements Runnable {
                 }
             } else {
                 sendResponse("LOGIN_FAIL");
+                disconnectUser();
             }
         } else {
             sendResponse("INVALID_LOGIN_FORMAT");
@@ -103,7 +117,7 @@ class ClientHandler implements Runnable {
         // Сохраняем первые три слова
         String senderName = parts[1];
         String recipientName = parts[2];
-        System.out.println("ИМЕНА: "+senderName+recipientName);
+
         // Удаляем первые три слова
         String[] wordsInMessage = Arrays.copyOfRange(parts, 3, parts.length);
 
@@ -119,6 +133,19 @@ class ClientHandler implements Runnable {
         }
         else{
             sendResponse("USER_EXIST FALSE " + parts[1]);
+        }
+    }
+
+    private void handleGetDialogs(String[] parts) throws IOException {
+        this.username = parts[1];
+
+        Set<String> dialogUsers = db.getUserDialogPartners(username);
+
+        if (dialogUsers.isEmpty()) {
+            sendResponse("DIALOGS_LIST ");
+        } else {
+            String response = "DIALOGS_LIST " + String.join(" ", dialogUsers);
+            sendResponse(response);
         }
     }
 

@@ -2,9 +2,9 @@ import java.io.*;
 import java.net.*;
 
 public class ServerConnection {
-    private Socket socket;
-    private PrintWriter out;
-    private BufferedReader in;
+    private final Socket socket;
+    private final PrintWriter out;
+    private final BufferedReader in;
 
     public ServerConnection(String serverAddress, int port) throws IOException {
         this.socket = new Socket(serverAddress, port);

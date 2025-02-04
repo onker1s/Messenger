@@ -60,11 +60,10 @@ public class LoginFrame extends JFrame {
                         serverConnection.sendMessage(request);
                         String response = serverConnection.receiveMessage();
                         if (response.equals("LOGIN_SUCCESS")) {
-                            System.out.println("Login successful!");
                             dispose();
                             final MainFrame mainFrame = new MainFrame(serverConnection, nameTextField.getText());
                         } else {
-                            System.out.println("Login failed: " + response);
+                            JOptionPane.showMessageDialog(LoginFrame.this, "Неверное имя пользователя или пароль.");
                         }
                     } catch (IOException ex) {
                         throw new RuntimeException(ex);
@@ -72,15 +71,15 @@ public class LoginFrame extends JFrame {
                 }
                 else if(passwordTextField.getText().isEmpty())
                 {
-                    // Окно с сообщением о том, что надо ввести пароль
+                    JOptionPane.showMessageDialog(LoginFrame.this, "Введите пароль.");
                 }
                 else if(nameTextField.getText().isEmpty())
                 {
-                    // Окно с сообщением о том, что надо ввести имя
+                    JOptionPane.showMessageDialog(LoginFrame.this, "Введите имя.");
                 }
                 else if(passwordTextField.getText().isEmpty() && nameTextField.getText().isEmpty())
                 {
-                    // Окно с сообщением о том, что надо ввести имя и пароль
+                    JOptionPane.showMessageDialog(LoginFrame.this, "Введите имя и пароль.");
                 }
             }
         });
@@ -146,17 +145,25 @@ public class LoginFrame extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 if(!passwordTextField.getText().isEmpty() && !nameTextField.getText().isEmpty())
                 {
+                    InetAddress localHost = null;
+                    try {
+                        localHost = InetAddress.getLocalHost();
+                    } catch (UnknownHostException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                    // Получаем IP-адрес в виде строки
+                    String ipAddress = localHost.getHostAddress();
                     //отправка имени и пароля в базу, подтверждение уникальности имени, регистрация пользователя
-                    String request = "LOGIN " + nameTextField.getText() + " " + passwordTextField.getText();
+                    String request = "LOGIN " + nameTextField.getText() + " " + passwordTextField.getText() + " " + ipAddress;
+                    System.out.println(request);
                     try {
                         serverConnection.sendMessage(request);
                         String response = serverConnection.receiveMessage();
                         if (response.equals("LOGIN_SUCCESS")) {
-                            System.out.println("Login successful!");
                             dispose();
                             final MainFrame mainFrame = new MainFrame(serverConnection,nameTextField.getText());
                         } else {
-                            System.out.println("Login failed: " + response);
+                            JOptionPane.showMessageDialog(LoginFrame.this, "Неверное имя пользователя или пароль.");
                         }
                     } catch (IOException ex) {
                         throw new RuntimeException(ex);
@@ -164,15 +171,15 @@ public class LoginFrame extends JFrame {
                 }
                 else if(passwordTextField.getText().isEmpty())
                 {
-                    // Окно с сообщением о том, что надо ввести пароль
+                    JOptionPane.showMessageDialog(LoginFrame.this, "Введите пароль.");
                 }
                 else if(nameTextField.getText().isEmpty())
                 {
-                    // Окно с сообщением о том, что надо ввести имя
+                    JOptionPane.showMessageDialog(LoginFrame.this, "Введите имя.");
                 }
                 else if(passwordTextField.getText().isEmpty() && nameTextField.getText().isEmpty())
                 {
-                    // Окно с сообщением о том, что надо ввести имя и пароль
+                    JOptionPane.showMessageDialog(LoginFrame.this, "Введите имя и пароль.");
                 }
             }
         });
